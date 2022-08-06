@@ -147,6 +147,9 @@ class Board:
             ]
         
         self.tiles = []
+    
+        self.alt_white = ['red', 'brown', 'orange', 'green', 'blue', 'yellow', 'pink', 'purple']
+        self.alt_black = ['brown', 'blue', 'orange', 'yellow', 'green', 'red', 'pink', 'purple']
 
         for x, row in enumerate(self.__layout):
             new_row = []
@@ -218,7 +221,7 @@ class Player:
                 print("The", color, "tower for player", self.color, 'is stuck')
                 print("Warning: your piece is stuck.")
                 self.get_tower(color).stuck = True
-
+    
     def check_win(self):
         for tower in self.towers:
             if (tower.tile.x == 0 and self.color == 'white') or (tower.tile.x == board_size-1 and self.color == 'black'):
@@ -245,7 +248,7 @@ class Player:
                 print("Error: I didn't understand that. Please try again.")
                 continue
 
-    def take_turn(self, next_color, was_stuck=False):
+    def take_turn(self, next_color):
         print("Current turn:", self.color)
         while True:
             try:
@@ -336,7 +339,11 @@ class Game:
 
         self.black = Player('black', black_towers)
         self.white = Player('white', white_towers)
+        self.black.opponent = self.white
+        self.white.opponent = self.black
         self.active_player = self.black
+    
+        self.deadlock = False
 
     def start(self):
         while True:
@@ -349,8 +356,12 @@ class Game:
         self.bv.update()
         self.active_player = self.white
 
-        while not (self.black.check_win() or self.white.check_win()):
-            self.next_color, _ = self.active_player.take_turn(self.next_color)
+        while not (self.black.check_win() or self.white.check_win() or self.deadlock):
+            next_color, _ = self.active_player.take_turn(self.next_color)
+            if self.check_deadlock(self.active_player, self.next_color):
+                self.deadlock = True
+                self.winner = self.active_player.opponent
+            self.next_color = next_color
             self.bv.update()
             if self.active_player.color == 'white':
                 self.active_player = self.black
@@ -363,3 +374,19 @@ class Game:
         elif self.white.check_win():
             print("White wins the game.")
             self.winner = self.white
+        elif self.deadlock:
+            print(self.winner.color.title(), "wins the game.")
+
+    def check_deadlock(self, player, color_to_move):
+        starting_tower = player.get_tower(color_to_move)
+        if not tower.stuck:
+            return False
+
+        tower = player.opponent.get_tower(starting_tower.tile.color)
+        # While we are still in the loop of stuck towers (and haven't come back around)
+        while tower.stuck and not (tower.color == starting_tower.color and tower.player == player.color):
+            tower = player.opponent.get_tower(tower.tile.color)
+        if (tower.color == starting_tower.color and tower.player == player.color):
+            print("Warning: deadlock detected.")
+            return True
+        return False
