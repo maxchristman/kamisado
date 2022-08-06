@@ -1,3 +1,5 @@
+from termcolor import colored
+
 board_size = 8
 valid_colors = ['brown', 'green', 'red', 'yellow', 'pink', 'purple', 'blue', 'orange']
 valid_players = ['black', 'white']
@@ -12,7 +14,7 @@ class Tower:
         self.color = color
         self.tile = starting_tile
     
-    def can_move_forwards(self):
+    def move_forwards(self, test=False):
         if self.player == 'black':
             in_front = self.tile.north_tile
         elif self.player == 'white':
@@ -26,15 +28,94 @@ class Tower:
             print("Notice: cannot move forwards off the board")
             return False
 
+        if not test:
+            self.tile.tower_on = None
+            self.tile = in_front 
+            in_front.tower_on = self
+        return True
+
+    def move_diag_left(self, test=False):
+        if self.player == 'black':
+            diag_left = self.tile.nw_tile
+        elif self.player == 'white':
+            diag_left = self.tile.se_tile
+        
+        if diag_left.tower_on != None:
+            print("Notice: diagonal left movement blocked by piece")
+            return False
+
+        if (self.player == 'black' and self.tile.nw_tile == None) or (self.player == 'white' and self.tile.se_tile == None):
+            print("Notice: cannot move diagonally left off the board")
+            return False
+
+        if not test:
+            self.tile.tower_on = None
+            self.tile = diag_left
+            diag_left.tower_on = self
+        return True
+
+    def move_diag_right(self, test=False):
+        if self.player == 'black':
+            diag_right = self.tile.ne_tile
+        elif self.player == 'white':
+            diag_right = self.tile.sw_tile
+        
+        if diag_right.tower_on != None:
+            print("Notice: diagonal right movement blocked by piece")
+            return False
+
+        if (self.player == 'black' and self.tile.ne_tile == None) or (self.player == 'white' and self.tile.sw_tile == None):
+            print("Notice: cannot move diagonally right off the board")
+            return False
+
+        if not test:
+            self.tile.tower_on = None
+            self.tile = diag_right
+            diag_right.tower_on = self
         return True
     
-    # def move_to(self, x, y):
-    #     if x <= self.tile.x:
-    #         raise Exception("Warning: towers may only be moved forwards, either straight or diagonally.")
+    def move_to(self, x, y, test=False):
+        if x <= self.tile.x:
+            print("Error: towers cannot be moved sideways or backwards.")
+            return False
+        if x >= board_size or y < 0 or y >= board_size:
+            print("Error: towers cannot be moved off the board")
+            return False
+        if y != self.tile.y and abs(y-self.tile.y) != abs(x-self.tile.x):
+            print("Error: diagonal moves must have equal x and y components")
+            return False
         
-    #     # Moving straight forwards
-    #     if y == self.tile.y:
+        initial_tile = self.tile
 
+        if y == self.tile.y:
+            while not (self.tile.x == x and self.tile.y == y) and self.move_forwards(test=True):
+                self.move_forwards()
+        elif y < self.tile.y:
+            while not (self.tile.x == x and self.tile.y == y) and self.move_diag_left(test=True):
+                self.move_diag_left()
+        elif y > self.tile.y:
+            while not (self.tile.x == x and self.tile.y == y) and self.move_diag_right(test=True):
+                self.move_diag_right()
+        
+        success = (self.tile.x == x and self.tile.y == y)
+        
+        if success and not test:
+            print("Notice: Tower was successfully moved.")
+            return True
+        
+        # Move the tower back
+        self.tile.tower_on = None
+        self.tile = initial_tile
+
+        if not test:
+            print("Notice: Tower was not successfully moved.")
+
+        if success:
+            print("Notice: tower can be moved to this location.")
+            return True
+        
+        print("Notice: this move is blocked by other towers.")
+        return False
 
 class Tile:
     def __init__(self, x, y, color):
@@ -116,6 +197,43 @@ class Player:
         self.score = 0
         self.color = color
 
+class BoardView:
+    def __init__(self, board):
+        self.board = board
+        self.update()
+
+    def update(self):
+        # Reverse rows for displaying
+        for row in self.board.tiles[::-1]:
+            row_string = ""
+            for tile in row:
+                if tile.tower_on == None:
+                    row_string += 'x'
+                    continue
+                row_string += self.get_display_string(tile.tower_on.player, tile.tower_on.color)
+            print(row_string)
+
+    def get_display_string(self, player, color):
+        c = player[0]
+        match color:
+            case 'red':
+                return colored(c, 'red')
+            case 'blue':
+                return colored(c, 'cyan')
+            case 'green':
+                return colored(c, 'green')
+            case 'yellow':
+                return colored(c, 'yellow')
+            case 'pink':
+                return colored(c, 'magenta')
+            case 'purple':
+                return colored(c, 'blue')
+            case 'brown':
+                return colored(c, 'grey')
+            case 'orange':
+                return c
+
+
 class Game:
     def __init__(self, game_length, reset_mode):
         self.game_length = game_length
@@ -125,8 +243,12 @@ class Game:
         white = Player('white')
 
         board = Board()
+        bv = BoardView(board)
         for tower in board.towers:
-            print(tower.player, tower.color)
-            for _ in range(7):
-                tower.move_forwards()
-            break
+            print('sdkjhfk')
+            if tower.color == 'green':
+                tower.move_to(x=1, y=1, test=False)
+                break
+        bv.update()
+    
+
