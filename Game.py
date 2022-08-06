@@ -73,7 +73,7 @@ class Tower:
         return True
     
     def move_to(self, x, y, test=False):
-        if x <= self.tile.x:
+        if (x <= self.tile.x and self.player == 'black') or (x >= self.tile.x and self.player == 'white'):
             print("Error: towers cannot be moved sideways or backwards.")
             return False
         if x >= board_size or y < 0 or y >= board_size:
@@ -191,25 +191,46 @@ class Board:
                 self.towers.append(new_tower)
 
 class Player:
-    def __init__(self, color):
+    def __init__(self, color, towers):
         self.score = 0
         self.color = color
+        self.towers = towers
+    
+    def move_tower(self, color, x, y):
+        tower = None
+        for t in self.towers:
+            if t.color == color:
+                tower = t
+                break
+         
+        status = t.move_to(x, y, test=False)
+        return status, t.tile.color
 
 class BoardView:
     def __init__(self, board):
         self.board = board
+        print("Welcome to Kamisado!")
         self.update()
 
     def update(self):
-        # Reverse rows for displaying
-        for row in self.board.tiles[::-1]:
-            row_string = ""
+        row_strings = []
+        for x, row in enumerate(self.board.tiles):
+            row_string = str(x) + ' '
             for tile in row:
                 if tile.tower_on == None:
                     row_string += self.get_display_string('x', tile.color)
                     continue
                 row_string += self.get_display_string(tile.tower_on.player, tile.tower_on.color)
-            print(row_string)
+            row_strings.append(row_string)
+
+        # Reverse rows for displaying
+        row_strings = row_strings[::-1] 
+        horizontal_label = '  '
+        for y in range(board_size):
+            horizontal_label += str(y) + ' '
+        row_strings.append(horizontal_label)
+        for rs in row_strings:
+            print(rs)
 
     def colored(self, text, r, g, b):
         return "\033[38;2;{};{};{}m{} \033[38;2;255;255;255m".format(r, g, b, text)
@@ -240,16 +261,83 @@ class Game:
         self.game_length = game_length
         self.reset_mode = reset_mode
 
-        black = Player('black')
-        white = Player('white')
+        self.board = Board()
+        self.bv = BoardView(self.board)
 
-        board = Board()
-        bv = BoardView(board)
-        for tower in board.towers:
-            if tower.color == 'orange':
-                tower.move_to(x=6, y=1, test=False)
+        black_towers, white_towers = [], []
+        for tower in self.board.towers:
+            if tower.player == 'black':
+                black_towers.append(tower)
+            elif tower.player == 'white':
+                white_towers.append(tower)
+
+        self.black = Player('black', black_towers)
+        self.white = Player('white', white_towers)
+        self.active_player = self.black
+
+        while True:
+            ready = input("Are you ready to play? ")
+            if 'y' not in ready.lower():
+                continue
+            break
+            
+        print("Black makes the first move.")
+            
+        while True:
+            try:
+                color_to_move = input("Which piece would you like to move? ") 
+                x_to_move = int(input("Please enter the desired x coordinate. "))
+                y_to_move = int(input("Please enter the desired y coordinate. "))
+                status, next_color = self.active_player.move_tower(color_to_move, x_to_move, y_to_move)
+                if not status:
+                    print("Warning: invalid move")
+                    continue
+                self.next_color = next_color
                 break
-        bv.update()
-        
-    
+            except Exception:
+                print("Error: I didn't understand that. Please try again.")
+                continue
+        self.bv.update()
+        self.active_player = self.white
 
+        while True:
+            print("Current turn:", self.active_player.color)
+            while True:
+                try:
+                    print("You must move your", self.next_color, 'tower') 
+                    x_to_move = int(input("Please enter the desired x coordinate. "))
+                    y_to_move = int(input("Please enter the desired y coordinate. "))
+                    status, next_color = self.active_player.move_tower(self.next_color, x_to_move, y_to_move)
+                    if not status:
+                        print("Warning: invalid move")
+                        continue
+                    self.next_color = next_color
+                    break
+                except Exception:
+                    print("Error: I didn't understand that. Please try again.")
+                    continue
+            self.bv.update()
+            for tower in self.board.towers:
+                if (tower.tile.x == 0 and tower.player == 'white'):
+                    print("Congrats, white won the game!")
+                    break
+                if (tower.tile.x == board_size - 1 and tower.player == 'black'):
+                    print("Congrats, black won the game!")
+                    break
+    
+    def black_turn(self):
+        pass
+
+    def white_turn(self):
+        pass
+
+        # for tower in self.board.towers:
+        #     if tower.color == 'orange':
+        #         tower.move_to(x=6, y=1, test=False)
+        #         break
+        # for tower in self.board.towers:
+        #     if tower.color == 'blue':
+        #         tower.move_to(x=4, y=6, test=False)
+        #         break
+        # self.bv.update()
+        
