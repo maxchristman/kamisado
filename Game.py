@@ -88,10 +88,10 @@ class Tower:
         if y == self.tile.y:
             while not (self.tile.x == x and self.tile.y == y) and self.move_forwards(test=True):
                 self.move_forwards()
-        elif y < self.tile.y:
+        elif (y < self.tile.y and self.player == 'black') or (y > self.tile.y and self.player == 'white'):
             while not (self.tile.x == x and self.tile.y == y) and self.move_diag_left(test=True):
                 self.move_diag_left()
-        elif y > self.tile.y:
+        elif (y > self.tile.y and self.player == 'black') or (y < self.tile.y and self.player == 'white'):
             while not (self.tile.x == x and self.tile.y == y) and self.move_diag_right(test=True):
                 self.move_diag_right()
         
@@ -320,10 +320,14 @@ class Game:
             for tower in self.board.towers:
                 if (tower.tile.x == 0 and tower.player == 'white'):
                     print("Congrats, white won the game!")
-                    break
+                    return
                 if (tower.tile.x == board_size - 1 and tower.player == 'black'):
                     print("Congrats, black won the game!")
-                    break
+                    return
+            if self.active_player.color == 'white':
+                self.active_player = self.black
+            elif self.active_player.color == 'black':
+                self.active_player = self.white
     
     def black_turn(self):
         pass
