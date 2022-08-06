@@ -1,5 +1,3 @@
-from termcolor import colored
-
 board_size = 8
 valid_colors = ['brown', 'green', 'red', 'yellow', 'pink', 'purple', 'blue', 'orange']
 valid_players = ['black', 'white']
@@ -208,30 +206,33 @@ class BoardView:
             row_string = ""
             for tile in row:
                 if tile.tower_on == None:
-                    row_string += 'x'
+                    row_string += self.get_display_string('x', tile.color)
                     continue
                 row_string += self.get_display_string(tile.tower_on.player, tile.tower_on.color)
             print(row_string)
+
+    def colored(self, text, r, g, b):
+        return "\033[38;2;{};{};{}m{} \033[38;2;255;255;255m".format(r, g, b, text)
 
     def get_display_string(self, player, color):
         c = player[0]
         match color:
             case 'red':
-                return colored(c, 'red')
+                return self.colored(c, 255, 0, 0)
             case 'blue':
-                return colored(c, 'cyan')
+                return self.colored(c, 0, 0, 255)
             case 'green':
-                return colored(c, 'green')
+                return self.colored(c, 0, 255, 0)
             case 'yellow':
-                return colored(c, 'yellow')
+                return self.colored(c, 255, 255, 0)
             case 'pink':
-                return colored(c, 'magenta')
+                return self.colored(c, 255, 20, 147)
             case 'purple':
-                return colored(c, 'blue')
+                return self.colored(c, 148, 0, 211)
             case 'brown':
-                return colored(c, 'grey')
+                return self.colored(c, 115, 97, 77)
             case 'orange':
-                return c
+                return self.colored(c, 255, 137, 0)
 
 
 class Game:
@@ -245,10 +246,10 @@ class Game:
         board = Board()
         bv = BoardView(board)
         for tower in board.towers:
-            print('sdkjhfk')
-            if tower.color == 'green':
-                tower.move_to(x=1, y=1, test=False)
+            if tower.color == 'orange':
+                tower.move_to(x=6, y=1, test=False)
                 break
         bv.update()
+        
     
 
