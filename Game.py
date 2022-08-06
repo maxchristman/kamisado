@@ -357,4 +357,9 @@ class Game:
             elif self.active_player.color == 'black':
                 self.active_player = self.white
 
-        print("Game over.")
+        if self.black.check_win():
+            print("Black wins the game.")
+            self.winner = self.black
+        elif self.white.check_win():
+            print("White wins the game.")
+            self.winner = self.white
