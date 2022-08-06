@@ -281,13 +281,19 @@ class Game:
         self.white = Player('white', white_towers)
         self.active_player = self.black
 
-    def play(self):
+    def start(self):
         while True:
             ready = input("Are you ready to play? ")
             if 'y' not in ready.lower():
                 continue
             break
             
+        self.first_move()
+
+        while not self.take_turn():
+            continue
+    
+    def first_move(self):
         print("Black makes the first move.")
             
         while True:
@@ -306,57 +312,54 @@ class Game:
                 continue
         self.bv.update()
         self.active_player = self.white
-
-        while True:
-            print("Current turn:", self.active_player.color)
-            while True:
-                try:
-                    print("You must move your", self.next_color, 'tower') 
-                    possible_moves = self.active_player.get_possible_moves(self.next_color)
-                    if len(possible_moves) == 0:
-                        print("Warning: your piece is stuck.")
-                        self.next_color = self.active_player.get_tower(self.next_color).tile.color
-                        if self.active_player.color == 'white':
-                            self.active_player = self.black
-                        elif self.active_player.color == 'black':
-                            self.active_player = self.white
-                        print("Current turn:", self.active_player.color)
-                        print("You must move your", self.next_color, 'tower') 
-                        self.bv.update()
-                    x_to_move = int(input("Please enter the desired x coordinate. "))
-                    y_to_move = int(input("Please enter the desired y coordinate. "))
-                    status, next_color = self.active_player.move_tower(self.next_color, x_to_move, y_to_move)
-                    if not status:
-                        print("Warning: invalid move")
-                        continue
-                    self.next_color = next_color
-                    break
-                except Exception:
-                    print("Error: I didn't understand that. Please try again.")
-                    continue
-            self.bv.update()
-            for tower in self.board.towers:
-                if (tower.tile.x == 0 and tower.player == 'white'):
-                    print("Congrats, white won the game!")
-                    return
-                if (tower.tile.x == board_size - 1 and tower.player == 'black'):
-                    print("Congrats, black won the game!")
-                    return
-            if self.active_player.color == 'white':
-                self.active_player = self.black
-            elif self.active_player.color == 'black':
-                self.active_player = self.white
     
-    def take_turn(self, color):
-        pass
+    def check_win(self):
+        for tower in self.board.towers:
+            if (tower.tile.x == 0 and tower.player == 'white'):
+                print("Congrats, white won the game!")
+                self.winner = self.active_player
+                self.active_player.score += 1
+                return True
+            if (tower.tile.x == board_size - 1 and tower.player == 'black'):
+                print("Congrats, black won the game!")
+                self.winner = self.active_player
+                self.active_player.score += 1
+                return True
+        return False
+    
+    def take_turn(self):
+        print("Current turn:", self.active_player.color)
+        while True:
+            try:
+                print("You must move your", self.next_color, 'tower') 
+                possible_moves = self.active_player.get_possible_moves(self.next_color)
+                if len(possible_moves) == 0:
+                    print("Warning: your piece is stuck.")
+                    self.next_color = self.active_player.get_tower(self.next_color).tile.color
+                    if self.active_player.color == 'white':
+                        self.active_player = self.black
+                    elif self.active_player.color == 'black':
+                        self.active_player = self.white
+                    print("Current turn:", self.active_player.color)
+                    print("You must move your", self.next_color, 'tower') 
+                    self.bv.update()
+                x_to_move = int(input("Please enter the desired x coordinate. "))
+                y_to_move = int(input("Please enter the desired y coordinate. "))
+                status, next_color = self.active_player.move_tower(self.next_color, x_to_move, y_to_move)
+                if not status:
+                    print("Warning: invalid move")
+                    continue
+                self.next_color = next_color
+                break
+            except Exception:
+                print("Error: I didn't understand that. Please try again.")
+                continue
 
-        # for tower in self.board.towers:
-        #     if tower.color == 'orange':
-        #         tower.move_to(x=6, y=1, test=False)
-        #         break
-        # for tower in self.board.towers:
-        #     if tower.color == 'blue':
-        #         tower.move_to(x=4, y=6, test=False)
-        #         break
-        # self.bv.update()
-        
+        self.bv.update()
+        if self.check_win():
+            return True
+        if self.active_player.color == 'white':
+            self.active_player = self.black
+        elif self.active_player.color == 'black':
+            self.active_player = self.white
+        return False
