@@ -19,11 +19,9 @@ class Tower:
             in_front = self.tile.south_tile
         
         if in_front.tower_on != None:
-            print("Notice: forwards movement blocked by piece")
             return False
 
         if (self.player == 'black' and self.tile.north_tile == None) or (self.player == 'white' and self.tile.south_tile == None):
-            print("Notice: cannot move forwards off the board")
             return False
 
         if not test:
@@ -39,11 +37,9 @@ class Tower:
             diag_left = self.tile.se_tile
         
         if diag_left.tower_on != None:
-            print("Notice: diagonal left movement blocked by piece")
             return False
 
         if (self.player == 'black' and self.tile.nw_tile == None) or (self.player == 'white' and self.tile.se_tile == None):
-            print("Notice: cannot move diagonally left off the board")
             return False
 
         if not test:
@@ -59,11 +55,9 @@ class Tower:
             diag_right = self.tile.sw_tile
         
         if diag_right.tower_on != None:
-            print("Notice: diagonal right movement blocked by piece")
             return False
 
         if (self.player == 'black' and self.tile.ne_tile == None) or (self.player == 'white' and self.tile.sw_tile == None):
-            print("Notice: cannot move diagonally right off the board")
             return False
 
         if not test:
@@ -73,14 +67,12 @@ class Tower:
         return True
     
     def move_to(self, x, y, test=False):
+    
         if (x <= self.tile.x and self.player == 'black') or (x >= self.tile.x and self.player == 'white'):
-            print("Error: towers cannot be moved sideways or backwards.")
             return False
         if x >= board_size or y < 0 or y >= board_size:
-            print("Error: towers cannot be moved off the board")
             return False
         if y != self.tile.y and abs(y-self.tile.y) != abs(x-self.tile.x):
-            print("Error: diagonal moves must have equal x and y components")
             return False
         
         initial_tile = self.tile
@@ -98,7 +90,7 @@ class Tower:
         success = (self.tile.x == x and self.tile.y == y)
         
         if success and not test:
-            print("Notice: Tower was successfully moved.")
+            print("Notice: tower was successfully moved.")
             return True
         
         # Move the tower back
@@ -106,14 +98,20 @@ class Tower:
         self.tile = initial_tile
 
         if not test:
-            print("Notice: Tower was not successfully moved.")
+            print("Notice: tower was not successfully moved.")
 
         if success:
-            print("Notice: tower can be moved to this location.")
             return True
         
-        print("Notice: this move is blocked by other towers.")
         return False
+    
+    def get_possible_moves(self):
+        possible_moves = []
+        for x in range(board_size):
+            for y in range(board_size):
+                if self.move_to(x, y, test=True):
+                    possible_moves.append([x, y])
+        return possible_moves
 
 class Tile:
     def __init__(self, x, y, color):
@@ -196,15 +194,21 @@ class Player:
         self.color = color
         self.towers = towers
     
-    def move_tower(self, color, x, y):
+    def get_tower(self, color):
         tower = None
         for t in self.towers:
             if t.color == color:
                 tower = t
                 break
-         
-        status = t.move_to(x, y, test=False)
-        return status, t.tile.color
+        return tower
+    
+    def move_tower(self, color, x, y):
+        tower = self.get_tower(color)
+        status = tower.move_to(x, y, test=False)
+        return status, tower.tile.color
+    
+    def get_possible_moves(self, color):
+        return self.get_tower(color).get_possible_moves()
 
 class BoardView:
     def __init__(self, board):
@@ -218,7 +222,7 @@ class BoardView:
             row_string = str(x) + ' '
             for tile in row:
                 if tile.tower_on == None:
-                    row_string += self.get_display_string('x', tile.color)
+                    row_string += self.get_display_string('o', tile.color)
                     continue
                 row_string += self.get_display_string(tile.tower_on.player, tile.tower_on.color)
             row_strings.append(row_string)
@@ -236,7 +240,10 @@ class BoardView:
         return "\033[38;2;{};{};{}m{} \033[38;2;255;255;255m".format(r, g, b, text)
 
     def get_display_string(self, player, color):
-        c = player[0]
+        if player != 'o':
+            c = player[0].upper()
+        else:
+            c = player
         match color:
             case 'red':
                 return self.colored(c, 255, 0, 0)
@@ -254,7 +261,6 @@ class BoardView:
                 return self.colored(c, 115, 97, 77)
             case 'orange':
                 return self.colored(c, 255, 137, 0)
-
 
 class Game:
     def __init__(self, game_length, reset_mode):
@@ -275,6 +281,7 @@ class Game:
         self.white = Player('white', white_towers)
         self.active_player = self.black
 
+    def play(self):
         while True:
             ready = input("Are you ready to play? ")
             if 'y' not in ready.lower():
@@ -305,6 +312,17 @@ class Game:
             while True:
                 try:
                     print("You must move your", self.next_color, 'tower') 
+                    possible_moves = self.active_player.get_possible_moves(self.next_color)
+                    if len(possible_moves) == 0:
+                        print("Warning: your piece is stuck.")
+                        self.next_color = self.active_player.get_tower(self.next_color).tile.color
+                        if self.active_player.color == 'white':
+                            self.active_player = self.black
+                        elif self.active_player.color == 'black':
+                            self.active_player = self.white
+                        print("Current turn:", self.active_player.color)
+                        print("You must move your", self.next_color, 'tower') 
+                        self.bv.update()
                     x_to_move = int(input("Please enter the desired x coordinate. "))
                     y_to_move = int(input("Please enter the desired y coordinate. "))
                     status, next_color = self.active_player.move_tower(self.next_color, x_to_move, y_to_move)
@@ -329,10 +347,7 @@ class Game:
             elif self.active_player.color == 'black':
                 self.active_player = self.white
     
-    def black_turn(self):
-        pass
-
-    def white_turn(self):
+    def take_turn(self, color):
         pass
 
         # for tower in self.board.towers:
