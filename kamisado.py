@@ -92,16 +92,12 @@ class Tower:
         success = (self.tile.x == x and self.tile.y == y)
         
         if success and not test:
-            print("Notice: tower was successfully moved.")
             return True
         
         # Move the tower back
         self.tile.tower_on = None
         self.tile = initial_tile
         self.tile.tower_on = self
-
-        if not test:
-            print("Notice: tower was not successfully moved.")
 
         if success:
             return True
@@ -213,10 +209,11 @@ class Player:
     def move_tower(self, color, x, y):
         tower = self.get_tower(color)
         status = tower.move_to(x, y, test=False)
+        # Whether piece was moved, to what color, which piece was moved
         if status:
-            return status, tower.tile.color
+            return status, tower.tile.color, color
         else:
-            return status, color
+            return status, color, color
     
     def get_possible_moves(self, color):
         return self.get_tower(color).get_possible_moves()
@@ -248,11 +245,11 @@ class HumanPlayer(Player):
                 color_to_move = input("Which piece would you like to move? ") 
                 x_to_move = int(input("Please enter the desired x coordinate. "))
                 y_to_move = int(input("Please enter the desired y coordinate. "))
-                status, next_color = self.move_tower(color_to_move, x_to_move, y_to_move)
+                status, next_color, piece_moved = self.move_tower(color_to_move, x_to_move, y_to_move)
                 if not status:
                     print("Warning: invalid move")
                     continue
-                return next_color
+                return next_color, piece_moved
             except Exception as e:
                 print("Error: I didn't understand that. Please try again.")
                 print(e)
@@ -271,11 +268,11 @@ class HumanPlayer(Player):
                     return next_color
                 x_to_move = int(input("Please enter the desired x coordinate. "))
                 y_to_move = int(input("Please enter the desired y coordinate. "))
-                status, next_color = self.move_tower(next_color, x_to_move, y_to_move)
+                status, next_color, piece_moved = self.move_tower(next_color, x_to_move, y_to_move)
                 if not status:
                     print("Warning: invalid move")
                     continue
-                return next_color
+                return next_color, piece_moved
             except Exception:
                 print("Error: I didn't understand that. Please try again.")
                 continue
@@ -289,31 +286,27 @@ class RandomPlayer(Player):
         if self.color == 'white':
             raise Exception("Error: only the black player can make the first move.")
 
-        print("Black makes the first move.")
         possible_moves = []
         for color in valid_colors:
             possible_moves += [(color, move) for move in self.get_possible_moves(color)]
         color_to_move, [x_to_move, y_to_move] = random.choice(possible_moves)
         
-        _, next_color = self.move_tower(color_to_move, x_to_move, y_to_move)
+        _, next_color, piece_moved = self.move_tower(color_to_move, x_to_move, y_to_move)
         time.sleep(self.delay)
-        return next_color
+        return next_color, piece_moved
 
     def take_turn(self, next_color):
-        print("Current turn:", self.color)
-        print("You must move your", next_color, 'tower') 
         self.check_stuck_towers()
         if self.get_tower(next_color).stuck:
-            print("Warning: your piece is stuck.")
             next_color = self.get_tower(next_color).tile.color
             # This is next color to move, whether or not they are stuck
             time.sleep(self.delay)
-            return next_color
+            return next_color, None
         possible_moves = [(next_color, move) for move in self.get_possible_moves(next_color)]
         color_to_move, [x_to_move, y_to_move] = random.choice(possible_moves)
-        _, next_color = self.move_tower(color_to_move, x_to_move, y_to_move)
+        _, next_color, piece_moved = self.move_tower(color_to_move, x_to_move, y_to_move)
         time.sleep(self.delay)
-        return next_color
+        return next_color, piece_moved
 
 class BoardView:
     def __init__(self, board):
@@ -344,10 +337,12 @@ class BoardView:
         for rs in row_strings:
             print(rs)
 
-    def colored(self, text, r, g, b):
+    @classmethod
+    def colored(cls, text, r, g, b):
         return "\033[38;2;{};{};{}m{} \033[38;2;255;255;255m".format(r, g, b, text)
 
-    def get_display_string(self, player, color):
+    @classmethod
+    def get_display_string(cls, player, color):
         if player == 'black':
             c = 'B'
         elif player == 'white':
@@ -356,27 +351,29 @@ class BoardView:
             c = 'o'
         match color:
             case 'red':
-                return self.colored(c, 255, 0, 0)
+                return cls.colored(c, 255, 0, 0)
             case 'blue':
-                return self.colored(c, 0, 0, 255)
+                return cls.colored(c, 0, 0, 255)
             case 'green':
-                return self.colored(c, 0, 255, 0)
+                return cls.colored(c, 0, 255, 0)
             case 'yellow':
-                return self.colored(c, 255, 255, 0)
+                return cls.colored(c, 255, 255, 0)
             case 'pink':
-                return self.colored(c, 255, 20, 147)
+                return cls.colored(c, 255, 20, 147)
             case 'purple':
-                return self.colored(c, 148, 0, 211)
+                return cls.colored(c, 148, 0, 211)
             case 'brown':
-                return self.colored(c, 115, 97, 77)
+                return cls.colored(c, 115, 97, 77)
             case 'orange':
-                return self.colored(c, 255, 137, 0)
+                return cls.colored(c, 255, 137, 0)
 
 class Game:
 
-    def __init__(self, p1, p2, tower_layout):
+    def __init__(self, p1, p2, tower_layout, headless=False):
+        self.headless = headless
         self.board = Board(tower_layout=tower_layout)
-        self.bv = BoardView(self.board)
+        if not self.headless:
+            self.bv = BoardView(self.board)
 
         black_towers, white_towers = [], []
         for tower in self.board.towers:
@@ -395,6 +392,11 @@ class Game:
         self.active_player = self.black
     
         self.deadlock = False
+    
+    def print(self, message):
+        if self.headless:
+            return
+        print(message)
 
     def start(self):
         if self.black.player_type != 'random':
@@ -403,37 +405,45 @@ class Game:
                 if 'y' not in ready.lower():
                     continue
                 break
-            
-        self.next_color = self.black.first_move()
-        self.bv.update()
+        self.print("Turn: black can move " + "".join([BoardView.get_display_string('tile', color) for color in valid_colors]))
+        self.next_color, piece_moved = self.black.first_move()
+        self.print("Move: black moved " + BoardView.get_display_string('tile', piece_moved) + "-> " + BoardView.get_display_string('tile', self.next_color))
+        if not self.headless:
+            self.bv.update()
         self.active_player = self.white
 
         while not (self.black.check_win() or self.white.check_win() or self.deadlock):
-            next_color = self.active_player.take_turn(self.next_color)
+            self.print("Turn: " + self.active_player.color + " must move " + BoardView.get_display_string('tile', self.next_color))
+            next_color, piece_moved = self.active_player.take_turn(self.next_color)
+            if piece_moved != None:
+                self.print("Move: " + self.active_player.color + " moved " + BoardView.get_display_string('tile', piece_moved) + '-> ' + BoardView.get_display_string('tile', next_color))
+            else:
+                self.print("Move: " + self.active_player.color + " is stuck.")
             if (self.black.check_win() or self.white.check_win()):
-                self.bv.update()
+                if not self.headless:
+                    self.bv.update()
                 break
             self.active_player.check_stuck_towers()
             self.active_player.opponent.check_stuck_towers()
             if self.check_deadlock(self.active_player, self.next_color):
                 self.deadlock = True
                 self.winner = self.active_player.opponent
-                print(self.winner.color.title(), "caused a deadlock and loses.")
             self.next_color = next_color
-            self.bv.update()
+            if not self.headless:
+                self.bv.update()
             if self.active_player.color == 'white':
                 self.active_player = self.black
             elif self.active_player.color == 'black':
                 self.active_player = self.white
 
         if self.black.check_win():
-            print("Black wins the game.")
+            self.print("Result: black reached the white home row and wins the game.")
             self.winner = self.black
         elif self.white.check_win():
-            print("White wins the game.")
+            self.print("Result: white reached the black home row and wins the game.")
             self.winner = self.white
         elif self.deadlock:
-            print(self.winner.color.title(), "wins the game.")
+            self.print("Result: " + self.winner.opponent.color + " caused a deadlock, so " + self.winner.color + ' wins.')
 
     def check_deadlock(self, player, color_to_move):
         starting_tower = player.get_tower(color_to_move)
@@ -452,7 +462,7 @@ class Game:
         return False
 
 class GameConfig():
-    def __init__(self, p1_type, p2_type, tower_layout, delay=1):
+    def __init__(self, p1_type, p2_type, tower_layout, delay=1, headless=False):
         if p1_type == 'random':
             p1 = RandomPlayer('black', delay)
         elif p1_type == 'human':
@@ -462,6 +472,6 @@ class GameConfig():
         elif p2_type == 'human':
             p2 = HumanPlayer('white')
 
-        self.game = Game(p1, p2, tower_layout)
+        self.game = Game(p1, p2, tower_layout, headless)
     def start(self):
         self.game.start()
