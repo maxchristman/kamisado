@@ -134,7 +134,7 @@ class Tile:
         self.tower_on = None
     
 class Board:
-    def __init__(self):
+    def __init__(self, tower_layout):
         self.__layout = [
             ['brown', 'green', 'red', 'yellow', 'pink', 'purple', 'blue', 'orange'],
             ['purple', 'brown', 'yellow', 'blue', 'green', 'pink', 'orange', 'red'],
@@ -150,6 +150,13 @@ class Board:
     
         self.alt_white = ['red', 'brown', 'orange', 'green', 'blue', 'yellow', 'pink', 'purple']
         self.alt_black = ['brown', 'blue', 'orange', 'yellow', 'green', 'red', 'pink', 'purple']
+
+        if tower_layout == 'standard':
+            self.white_layout = valid_colors
+            self.black_layout = valid_colors
+        elif tower_layout == 'alternate':
+            self.white_layout = self.alt_white
+            self.black_layout = self.alt_black
 
         for x, row in enumerate(self.__layout):
             new_row = []
@@ -181,10 +188,10 @@ class Board:
             for y in range(board_size):
                 if x == 0:
                     tile = self.tiles[x][y]
-                    new_tower = Tower(valid_players[i], self.alt_black[y], tile)
+                    new_tower = Tower(valid_players[i], self.black_layout[y], tile)
                 elif x == -1:
                     tile = self.tiles[x][board_size-y-1]
-                    new_tower = Tower(valid_players[i], self.alt_white[y], tile)
+                    new_tower = Tower(valid_players[i], self.white_layout[y], tile)
                 tile.tower_on = new_tower
                 self.towers.append(new_tower)
         
@@ -337,11 +344,9 @@ class BoardView:
                 return self.colored(c, 255, 137, 0)
 
 class Game:
-    def __init__(self, game_length=None, reset_mode=None):
-        # self.game_length = game_length
-        # self.reset_mode = reset_mode
+    def __init__(self, game_length=None):
 
-        self.board = Board()
+        self.board = Board(tower_layout='standard')
         self.bv = BoardView(self.board)
 
         black_towers, white_towers = [], []
