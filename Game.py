@@ -176,21 +176,32 @@ class Board:
                     tile.sw_tile = self.tiles[x-1][y-1]
             
         self.towers = []
-        
-        for player in valid_players:
-            for y, color in enumerate(valid_colors):
-                if player == 'black':
-                    starting_tile = self.tiles[0][y]
-                elif player == 'white':
-                    starting_tile = self.tiles[-1][len(self.tiles)-y-1]
 
-                new_tower = Tower(player, color, starting_tile)
-
-                if player == 'black':
-                    self.tiles[0][y].tower_on = new_tower
-                elif player == 'white':
-                    self.tiles[-1][len(self.tiles)-y-1].tower_on = new_tower
+        for i, x in enumerate([0, -1]):
+            for y in range(board_size):
+                if x == 0:
+                    tile = self.tiles[x][y]
+                    new_tower = Tower(valid_players[i], self.alt_black[y], tile)
+                elif x == -1:
+                    tile = self.tiles[x][board_size-y-1]
+                    new_tower = Tower(valid_players[i], self.alt_white[y], tile)
+                tile.tower_on = new_tower
                 self.towers.append(new_tower)
+        
+        # for player in valid_players:
+        #     for y, color in enumerate(valid_colors):
+        #         if player == 'black':
+        #             starting_tile = self.tiles[0][y]
+        #         elif player == 'white':
+        #             starting_tile = self.tiles[-1][len(self.tiles)-y-1]
+
+        #         new_tower = Tower(player, color, starting_tile)
+
+        #         if player == 'black':
+        #             self.tiles[0][y].tower_on = new_tower
+        #         elif player == 'white':
+        #             self.tiles[-1][len(self.tiles)-y-1].tower_on = new_tower
+        #         self.towers.append(new_tower)
 
 class Player:
     def __init__(self, color, towers):
@@ -209,7 +220,10 @@ class Player:
     def move_tower(self, color, x, y):
         tower = self.get_tower(color)
         status = tower.move_to(x, y, test=False)
-        return status, tower.tile.color
+        if status:
+            return status, tower.tile.color
+        else:
+            return status, color
     
     def get_possible_moves(self, color):
         return self.get_tower(color).get_possible_moves()
@@ -217,10 +231,7 @@ class Player:
     def check_stuck_towers(self):
         for color in valid_colors:
             possible_moves = self.get_possible_moves(color)
-            if len(possible_moves) == 0:
-                print("The", color, "tower for player", self.color, 'is stuck')
-                print("Warning: your piece is stuck.")
-                self.get_tower(color).stuck = True
+            self.get_tower(color).stuck = (len(possible_moves) == 0)
     
     def check_win(self):
         for tower in self.towers:
@@ -244,8 +255,9 @@ class Player:
                     print("Warning: invalid move")
                     continue
                 return next_color
-            except Exception:
+            except Exception as e:
                 print("Error: I didn't understand that. Please try again.")
+                print(e)
                 continue
 
     def take_turn(self, next_color):
@@ -258,14 +270,14 @@ class Player:
                     print("Warning: your piece is stuck.")
                     next_color = self.get_tower(next_color).tile.color
                     # This is next color to move, whether or not they are stuck
-                    return next_color, True
+                    return next_color
                 x_to_move = int(input("Please enter the desired x coordinate. "))
                 y_to_move = int(input("Please enter the desired y coordinate. "))
                 status, next_color = self.move_tower(next_color, x_to_move, y_to_move)
                 if not status:
                     print("Warning: invalid move")
                     continue
-                return next_color, False
+                return next_color
             except Exception:
                 print("Error: I didn't understand that. Please try again.")
                 continue
@@ -282,7 +294,7 @@ class BoardView:
             row_string = str(x) + ' '
             for tile in row:
                 if tile.tower_on == None:
-                    row_string += self.get_display_string('o', tile.color)
+                    row_string += self.get_display_string('blank', tile.color)
                     continue
                 row_string += self.get_display_string(tile.tower_on.player, tile.tower_on.color)
             row_strings.append(row_string)
@@ -300,10 +312,12 @@ class BoardView:
         return "\033[38;2;{};{};{}m{} \033[38;2;255;255;255m".format(r, g, b, text)
 
     def get_display_string(self, player, color):
-        if player != 'o':
-            c = player[0].upper()
+        if player == 'black':
+            c = 'B'
+        elif player == 'white':
+            c = 'W'
         else:
-            c = player
+            c = 'o'
         match color:
             case 'red':
                 return self.colored(c, 255, 0, 0)
@@ -357,10 +371,13 @@ class Game:
         self.active_player = self.white
 
         while not (self.black.check_win() or self.white.check_win() or self.deadlock):
-            next_color, _ = self.active_player.take_turn(self.next_color)
+            next_color = self.active_player.take_turn(self.next_color)
+            self.active_player.check_stuck_towers()
+            self.active_player.opponent.check_stuck_towers()
             if self.check_deadlock(self.active_player, self.next_color):
                 self.deadlock = True
                 self.winner = self.active_player.opponent
+                print(self.winner.color.title(), "caused a deadlock and loses.")
             self.next_color = next_color
             self.bv.update()
             if self.active_player.color == 'white':
@@ -379,14 +396,16 @@ class Game:
 
     def check_deadlock(self, player, color_to_move):
         starting_tower = player.get_tower(color_to_move)
-        if not tower.stuck:
+        if not starting_tower.stuck:
             return False
 
         tower = player.opponent.get_tower(starting_tower.tile.color)
+        player = player.opponent
         # While we are still in the loop of stuck towers (and haven't come back around)
         while tower.stuck and not (tower.color == starting_tower.color and tower.player == player.color):
             tower = player.opponent.get_tower(tower.tile.color)
+            player = player.opponent
+
         if (tower.color == starting_tower.color and tower.player == player.color):
-            print("Warning: deadlock detected.")
             return True
         return False
