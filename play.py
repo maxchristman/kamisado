@@ -1,4 +1,4 @@
-from Game import Game
+from kamisado import GameConfig
 
-g = Game()
-g.start()
+gc = GameConfig('random', 'random', 'alternate', delay=0)
+gc.start()

@@ -1,4 +1,4 @@
-import random
+import random, time
 
 board_size = 8
 valid_colors = ['brown', 'green', 'red', 'yellow', 'pink', 'purple', 'blue', 'orange']
@@ -198,10 +198,9 @@ class Board:
                 self.towers.append(new_tower)
 
 class Player:
-    def __init__(self, color, towers):
+    def __init__(self, color):
         self.score = 0
         self.color = color
-        self.towers = towers
     
     def get_tower(self, color):
         tower = None
@@ -236,8 +235,9 @@ class Player:
     
 
 class HumanPlayer(Player):
-    def __init__(self, color, towers):
-        super().__init__(color, towers)
+    def __init__(self, color):
+        super().__init__(color)
+        self.player_type = 'human'
     def first_move(self):
         if self.color == 'white':
             raise Exception("Error: only the black player can make the first move.")
@@ -281,8 +281,10 @@ class HumanPlayer(Player):
                 continue
 
 class RandomPlayer(Player):
-    def __init__(self, color, towers):
-        super().__init__(color, towers)
+    def __init__(self, color, delay):
+        super().__init__(color)
+        self.player_type = 'random'
+        self.delay = delay
     def first_move(self):
         if self.color == 'white':
             raise Exception("Error: only the black player can make the first move.")
@@ -294,6 +296,7 @@ class RandomPlayer(Player):
         color_to_move, [x_to_move, y_to_move] = random.choice(possible_moves)
         
         _, next_color = self.move_tower(color_to_move, x_to_move, y_to_move)
+        time.sleep(self.delay)
         return next_color
 
     def take_turn(self, next_color):
@@ -304,10 +307,12 @@ class RandomPlayer(Player):
             print("Warning: your piece is stuck.")
             next_color = self.get_tower(next_color).tile.color
             # This is next color to move, whether or not they are stuck
+            time.sleep(self.delay)
             return next_color
         possible_moves = [(next_color, move) for move in self.get_possible_moves(next_color)]
         color_to_move, [x_to_move, y_to_move] = random.choice(possible_moves)
         _, next_color = self.move_tower(color_to_move, x_to_move, y_to_move)
+        time.sleep(self.delay)
         return next_color
 
 class BoardView:
@@ -368,9 +373,9 @@ class BoardView:
                 return self.colored(c, 255, 137, 0)
 
 class Game:
-    def __init__(self, game_length=None):
 
-        self.board = Board(tower_layout='standard')
+    def __init__(self, p1, p2, tower_layout):
+        self.board = Board(tower_layout=tower_layout)
         self.bv = BoardView(self.board)
 
         black_towers, white_towers = [], []
@@ -380,8 +385,11 @@ class Game:
             elif tower.player == 'white':
                 white_towers.append(tower)
 
-        self.black = HumanPlayer('black', black_towers)
-        self.white = RandomPlayer('white', white_towers)
+        self.black = p1
+        self.black.towers = black_towers
+        self.white = p2
+        self.white.towers = white_towers
+
         self.black.opponent = self.white
         self.white.opponent = self.black
         self.active_player = self.black
@@ -389,11 +397,12 @@ class Game:
         self.deadlock = False
 
     def start(self):
-        while True:
-            ready = input("Are you ready to play? ")
-            if 'y' not in ready.lower():
-                continue
-            break
+        if self.black.player_type != 'random':
+            while True:
+                ready = input("Are you ready to play? ")
+                if 'y' not in ready.lower():
+                    continue
+                break
             
         self.next_color = self.black.first_move()
         self.bv.update()
@@ -441,3 +450,18 @@ class Game:
         if (tower.color == starting_tower.color and tower.player == player.color):
             return True
         return False
+
+class GameConfig():
+    def __init__(self, p1_type, p2_type, tower_layout, delay=1):
+        if p1_type == 'random':
+            p1 = RandomPlayer('black', delay)
+        elif p1_type == 'human':
+            p1 = HumanPlayer('black')
+        if p2_type == 'random':
+            p2 = RandomPlayer('white', delay)
+        elif p2_type == 'human':
+            p2 = HumanPlayer('white')
+
+        self.game = Game(p1, p2, tower_layout)
+    def start(self):
+        self.game.start()
